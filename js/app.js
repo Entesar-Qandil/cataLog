@@ -45,7 +45,7 @@
   function getColumnsFromGrid(el){
     let bestCols = 1, bestMin = -1, w = window.innerWidth;
     el.classList.forEach(cls => {
-      const m = cls.match(/^row-cols(?:-([a-z]{2}))?-(\d+)$/);
+      const m = cls.match(/^row-cols(?:-([a-z]{2,3}))?-(\d+)$/);
       if (!m) return;
       const bp = m[1] || '';
       const cols = parseInt(m[2], 10);
@@ -174,8 +174,7 @@
   }
 
   function debounce(fn, ms){
-    let t;
-    return (...args) => { clearTimeout(t); t = setTimeout(() => fn.apply(null, args), ms); };
+    let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn.apply(null, args), ms); };
   }
 
   const handleResize = debounce(() => {
@@ -191,6 +190,27 @@
   }, 150);
 
   window.addEventListener('resize', handleResize);
+
+  // FIX: Prev/Next listeners
+  prevBtn.addEventListener('click', () => {
+    if (state.loading) return;
+    if (state.route === 'browse') {
+      if (state.page > 1) { state.page--; renderBrowse(); }
+    } else {
+      if (state.favPage > 1) { state.favPage--; renderFavorites(); }
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  nextBtn.addEventListener('click', () => {
+    if (state.loading) return;
+    if (state.route === 'browse') {
+      if (state.hasNext) { state.page++; renderBrowse(); }
+    } else {
+      if (state.hasNext) { state.favPage++; renderFavorites(); }
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
 
   bindGridEvents();
   if (!location.hash) location.hash = '#/browse';
