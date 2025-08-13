@@ -1,32 +1,23 @@
 (() => {
   const API_LIST = 'https://cataas.com/api/cats';
-  const API_IMG  = id => `https://cataas.com/cat/${id}`;
-  const PAGE_SIZE = 12;
+  const API_IMG = id => `https://cataas.com/cat/${id}`;
 
-  const viewEl   = document.getElementById('view');
-  const gridEl   = viewEl.querySelector('.grid');
-  const prevBtn  = document.getElementById('prev');
-  const nextBtn  = document.getElementById('next');
+  const viewEl = document.getElementById('view');
+  const gridEl = viewEl.querySelector('.grid');
+  const prevBtn = document.getElementById('prev');
+  const nextBtn = document.getElementById('next');
   const linkBrowse = document.getElementById('link-browse');
-  const linkFav    = document.getElementById('link-fav');
+  const linkFav = document.getElementById('link-fav');
 
-  const state = {
-    route: routeFromHash(location.hash),
-    page: 1,
-    hasNext: true,
-    loading: false,
-    controller: null
-  };
+  const state = { route: routeFromHash(location.hash), page: 1, hasNext: true, loading: false, controller: null };
 
-  const sessionKey = 'catalog.pages.v1';
+  const sessionKey = 'catalog.pages.v3';
   const sessionCache = JSON.parse(sessionStorage.getItem(sessionKey) || '{}');
 
   const LS_KEY = 'catalog.favs.v1';
   const favs = new Set(JSON.parse(localStorage.getItem(LS_KEY) || '[]'));
 
-  function saveFavs() {
-    localStorage.setItem(LS_KEY, JSON.stringify([...favs]));
-  }
+  function saveFavs() { localStorage.setItem(LS_KEY, JSON.stringify([...favs])); }
 
   window.addEventListener('hashchange', () => {
     state.route = routeFromHash(location.hash);
@@ -34,9 +25,7 @@
     render();
   });
 
-  function routeFromHash(h) {
-    return h.startsWith('#/favorites') ? 'favorites' : 'browse';
-  }
+  function routeFromHash(h) { return h.startsWith('#/favorites') ? 'favorites' : 'browse'; }
 
   function setActiveLink() {
     if (state.route === 'browse') {
@@ -48,8 +37,39 @@
     }
   }
 
+  function getCols() {
+    const cls = Array.from(gridEl.classList).filter(c => c.startsWith('row-cols-'));
+    const bpMin = { sm: 576, md: 768, lg: 992, xl: 1200, xxl: 1400 };
+    let rules = [];
+    for (const t of cls) {
+      const parts = t.split('-');
+      if (parts.length === 3) {
+        const cols = parseInt(parts[2], 10);
+        if (Number.isFinite(cols)) rules.push({ min: 0, cols });
+      } else if (parts.length === 4) {
+        const bp = parts[2];
+        const cols = parseInt(parts[3], 10);
+        const min = bpMin[bp] || 0;
+        if (Number.isFinite(cols)) rules.push({ min, cols });
+      }
+    }
+    rules.sort((a, b) => a.min - b.min);
+    let w = window.innerWidth || document.documentElement.clientWidth || 0;
+    let current = rules.length ? rules[0].cols : 1;
+    for (const r of rules) if (w >= r.min) current = r.cols;
+    return current || 1;
+  }
+
+  function getRows() {
+    const r = parseInt(gridEl.dataset.rows || '3', 10);
+    return Number.isFinite(r) && r > 0 ? r : 3;
+  }
+
+  function getPageSize() { return getCols() * getRows(); }
+
   async function fetchPageIds(page) {
-    if (sessionCache[page]) return sessionCache[page];
+    const PAGE_SIZE = getPageSize();
+    if (sessionCache[PAGE_SIZE]?.[page]) return sessionCache[PAGE_SIZE][page];
     if (state.controller) state.controller.abort();
     state.controller = new AbortController();
     const skip = (page - 1) * PAGE_SIZE;
@@ -58,12 +78,13 @@
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const ids = data.map(c => c.id || c._id).filter(Boolean);
-    sessionCache[page] = ids;
+    sessionCache[PAGE_SIZE] ||= {};
+    sessionCache[PAGE_SIZE][page] = ids;
     sessionStorage.setItem(sessionKey, JSON.stringify(sessionCache));
     return ids;
   }
 
-  function skeletonCards(n = PAGE_SIZE) {
+  function skeletonCards(n = getPageSize()) {
     const col = () => `<div class="col">
       <article class="card h-100" aria-busy="true">
         <figure class="card__media mb-0" style="background:#e9edf5"></figure>
@@ -116,11 +137,12 @@
 
   async function renderBrowse() {
     setActiveLink();
-    gridEl.innerHTML = skeletonCards();
+    gridEl.innerHTML = skeletonCards(getPageSize());
     prevBtn.hidden = false;
     nextBtn.hidden = false;
     state.loading = true;
     try {
+      const PAGE_SIZE = getPageSize();
       const ids = await fetchPageIds(state.page);
       state.hasNext = ids.length === PAGE_SIZE;
       gridEl.innerHTML = ids.map(cardHTML).join('') || emptyState('No cats found, try again.');
@@ -140,8 +162,7 @@
     nextBtn.hidden = true;
     const ids = [...favs];
     if (!ids.length) {
-      gridEl.innerHTML = emptyState('No favorites yet.',
-        `<a href="#/browse" class="pager__btn">Browse cats</a>`);
+      gridEl.innerHTML = emptyState('No favorites yet.', `<a href="#/browse" class="pager__btn">Browse cats</a>`);
       return;
     }
     gridEl.innerHTML = ids.map(cardHTML).join('');
@@ -171,6 +192,17 @@
       renderBrowse();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+  });
+
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (state.route === 'browse') {
+        state.page = 1;
+        renderBrowse();
+      }
+    }, 150);
   });
 
   bindGridEvents();
