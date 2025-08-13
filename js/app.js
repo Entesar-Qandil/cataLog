@@ -82,7 +82,7 @@
   }
 
   function skeletonCards(n){
-    const col = () => `<div class="col"><article class="card h-100" aria-busy="true"><figure class="card__media mb-0"></figure></article></div>`;
+    const col = () => `<div class="col"><article class="card h-100" aria-busy="true"><figure class="card__media mb-0" style="background:#e9edf5"></figure></article></div>`;
     return Array.from({ length: n }, col).join('');
   }
 
@@ -191,7 +191,6 @@
 
   window.addEventListener('resize', handleResize);
 
-  // FIX: Prev/Next listeners
   prevBtn.addEventListener('click', () => {
     if (state.loading) return;
     if (state.route === 'browse') {
