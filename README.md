@@ -13,3 +13,10 @@ If the player doesn’t appear, [download the video](assets/demo.mp4?raw=1).
 - Mark/unmark favorites (saved in `localStorage`).
 - Skeleton loading UI.
 - Accessible buttons with proper ARIA.
+
+
+## Demo 2 (Screen Recording)
+
+<video src="https://raw.githubusercontent.com/Entesar-Qandil/cataLog/main/assets/responseve.mp4" controls width="840" title="Project demo 2"></video>
+
+If the player doesn’t appear, [download Demo 2](assets/responseve.mp4?raw=1).
