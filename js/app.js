@@ -20,13 +20,13 @@
     try { return JSON.parse(localStorage.getItem(key) ?? JSON.stringify(fallback)); } catch { return fallback; }
   }
   function safeWriteLS(key, value) {
-    try { localStorage.setItem(key, JSON.stringify(value)); } catch { }
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
   }
   function safeReadSS(key, fallback) {
     try { return JSON.parse(sessionStorage.getItem(key) ?? JSON.stringify(fallback)); } catch { return fallback; }
   }
   function safeWriteSS(key, value) {
-    try { sessionStorage.setItem(key, JSON.stringify(value)); } catch { }
+    try { sessionStorage.setItem(key, JSON.stringify(value)); } catch {}
   }
 
   function createStore(initial) {
@@ -49,6 +49,7 @@
   function writePageCache() { safeWriteSS(SESSION_PAGES_KEY, pageCache); }
 
   const BOOTSTRAP_BREAKPOINTS = { '': 0, sm: 576, md: 768, lg: 992, xl: 1200, xxl: 1400 };
+  const ROW_COLS_REGEX = /^row-cols(?:-([a-z]{2,3}))?-(\d+)$/;
 
   function routeFromHash(h) { return h.startsWith('#/favorites') ? 'favorites' : 'browse'; }
 
@@ -74,18 +75,23 @@
     else { linkFav.setAttribute('aria-current', 'page'); linkBrowse.removeAttribute('aria-current'); }
   }
 
-  function getColumnsFromGrid(el) {
+  function getBootstrapColumnCount(gridRowEl) {
     try {
-      let bestCols = 1, bestMin = -1, w = window.innerWidth;
-      el.classList.forEach((cls) => {
-        const m = cls.match(/^row-cols(?:-([a-z]{2,3}))?-(\d+)$/);
-        if (!m) return;
-        const bp = m[1] || '';
-        const cols = parseInt(m[2], 10);
-        const min = BOOTSTRAP_BREAKPOINTS[bp] ?? 0;
-        if (w >= min && min > bestMin) { bestMin = min; bestCols = cols; }
+      let activeCols = 1;
+      let activeBreakpointMin = -1;
+      const viewportWidth = window.innerWidth;
+      gridRowEl.classList.forEach((className) => {
+        const match = className.match(ROW_COLS_REGEX);
+        if (!match) return;
+        const breakpointKey = match[1] || '';
+        const colsCount = parseInt(match[2], 10);
+        const breakpointMinWidth = BOOTSTRAP_BREAKPOINTS[breakpointKey] ?? 0;
+        if (viewportWidth >= breakpointMinWidth && breakpointMinWidth > activeBreakpointMin) {
+          activeBreakpointMin = breakpointMinWidth;
+          activeCols = colsCount;
+        }
       });
-      return bestCols;
+      return activeCols;
     } catch { return 1; }
   }
 
@@ -97,7 +103,7 @@
 
   function getPageSize() {
     if (Number.isFinite(CONFIG.limit) && CONFIG.limit > 0) return CONFIG.limit;
-    return getColumnsFromGrid(gridEl) * getRowsPerPage();
+    return getBootstrapColumnCount(gridEl) * getRowsPerPage();
   }
 
   let fetchController = null;
@@ -113,7 +119,7 @@
     let res;
     try {
       res = await fetch(url, { signal: fetchController.signal });
-    } catch (e) {
+    } catch {
       throw new Error(`Network error`);
     }
     if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText || ''}`.trim());
